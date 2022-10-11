@@ -97,6 +97,7 @@ export class IfcAPI
     wasmModule: undefined | any = undefined;
     fs: undefined | any = undefined;
     wasmPath: string = "";
+    isWasmPathAbsolute = false;
 
     ifcGuidMap: Map<number, Map<string | number, string | number>> = new Map<number, Map<string | number, string | number>>();
 
@@ -119,6 +120,11 @@ export class IfcAPI
                 // when the wasm module requests the wasm file, we redirect to include the user specified path
                 if (path.endsWith(".wasm"))
                 {
+                    if (this.isWasmPathAbsolute) 
+                    {
+                        return this.wasmPath + path;
+                    }
+
                     return prefix + this.wasmPath + path;
                 }
                 // otherwise use the default path
@@ -235,7 +241,7 @@ export class IfcAPI
                 // TODO: detect if the object needs to be written at all, or if it's unchanged
                 this.WriteLine(modelID, property);
 
-                // overwrite the reference 
+                // overwrite the reference
                 // NOTE: this modifies the parameter
                 lineObject[propertyName] = {
                     type: 5,
@@ -251,8 +257,8 @@ export class IfcAPI
                         // this is a real object, we have to write it as well and convert to a handle
                         // TODO: detect if the object needs to be written at all, or if it's unchanged
                         this.WriteLine(modelID, property[i]);
-        
-                        // overwrite the reference 
+
+                        // overwrite the reference
                         // NOTE: this modifies the parameter
                         lineObject[propertyName][i] = {
                             type: 5,
@@ -262,6 +268,14 @@ export class IfcAPI
                 }
             }
         });
+
+        // See https://github.com/IFCjs/web-ifc/issues/178 for some pitfalls here.
+        if (lineObject.expressID === undefined
+            || lineObject.type === undefined
+            || lineObject.ToTape === undefined) {
+            console.warn('Line object cannot be serialized:', lineObject)
+            return
+        }
 
         let rawLineData: RawLineData = {
             ID: lineObject.expressID,
@@ -414,8 +428,9 @@ export class IfcAPI
        this.ifcGuidMap.set(modelID, map);
     }
 
-    SetWasmPath(path: string){
+    SetWasmPath(path: string, absolute = false){
         this.wasmPath = path;
+        this.isWasmPathAbsolute = absolute;
     }
 
 
